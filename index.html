@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Year Ledger</title>
+<meta name="theme-color" content="#f3f5f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#11151d" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Year Ledger">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: a year header with a tally line, then three ruled columns (Past / Present / Future); on phones the columns become swipeable pages with a tab strip. */
+:root{
+  --paper:#f3f5f8; --sheet:#ffffff; --ink:#18202e; --muted:#5d6779; --rule:#dfe4ec;
+  --past:#3f7d63; --past-soft:#e3f0ea;
+  --now:#c7781a; --now-soft:#fbeedd;
+  --next:#3456c9; --next-soft:#e5eafb;
+  --danger:#b4372f;
+  --f-display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body:"Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#11151d; --sheet:#181e29; --ink:#e8ecf3; --muted:#9aa4b6; --rule:#2a3241;
+  --past:#6cc29c; --past-soft:#1a2c25; --now:#f0a64a; --now-soft:#2e2316; --next:#8aa2ff; --next-soft:#1c2340;
+  --danger:#ef7d74; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#11151d; --sheet:#181e29; --ink:#e8ecf3; --muted:#9aa4b6; --rule:#2a3241;
+  --past:#6cc29c; --past-soft:#1a2c25; --now:#f0a64a; --now-soft:#2e2316; --next:#8aa2ff; --next-soft:#1c2340;
+  --danger:#ef7d74; color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+body{background:var(--paper);color:var(--ink);font:15px/1.5 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 32px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--next);outline-offset:2px}
+
+header{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px}
+.yearnav{display:flex;align-items:center;gap:6px}
+.yearnav h1{font:700 clamp(40px,9vw,64px)/1 var(--f-display);letter-spacing:-.02em;margin:0 4px;font-variant-numeric:tabular-nums}
+.arrow{width:38px;height:38px;border-radius:50%;border:1px solid var(--rule);background:var(--sheet);font-size:18px;display:grid;place-items:center}
+.tally{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.tally b{font:700 20px/1 var(--f-display);color:var(--ink);font-variant-numeric:tabular-nums;margin-right:4px}
+.sync{font:500 11px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+
+.tabs{display:none;gap:6px;background:var(--sheet);border:1px solid var(--rule);border-radius:12px;padding:4px}
+.tabs button{flex:1;border:0;background:transparent;border-radius:9px;padding:9px 4px;font-weight:600;font-size:14px;color:var(--muted)}
+.tabs button.on{color:var(--ink);background:var(--paper)}
+.tabs button .n{font:500 11px var(--f-mono);margin-left:4px;opacity:.8}
+
+.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start}
+.col{min-width:0;background:var(--sheet);border:1px solid var(--rule);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.col-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 14px 12px;border-bottom:3px solid var(--c)}
+.col-head h2{margin:0;font:700 22px/1.1 var(--f-display);letter-spacing:-.01em}
+.col-head p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+.add{flex:none;width:36px;height:36px;border-radius:10px;border:0;background:var(--cs);color:var(--c);font-size:22px;line-height:1;display:grid;place-items:center}
+.col[data-col="past"]{--c:var(--past);--cs:var(--past-soft)}
+.col[data-col="present"]{--c:var(--now);--cs:var(--now-soft)}
+.col[data-col="future"]{--c:var(--next);--cs:var(--next-soft)}
+
+ul.list{list-style:none;margin:0;padding:0;
+  background-image:repeating-linear-gradient(to bottom,transparent 0 47px,var(--rule) 47px 48px)}
+.entry{display:grid;grid-template-columns:44px minmax(0,1fr);gap:8px;align-items:start;padding:12px 14px;border-bottom:1px solid var(--rule);background:var(--sheet);cursor:pointer}
+.entry:hover{background:var(--cs)}
+.entry .mo{font:500 11px/1.9 var(--f-mono);letter-spacing:.06em;color:var(--c);text-transform:uppercase}
+.entry .tx{min-width:0;overflow-wrap:anywhere;white-space:pre-wrap}
+.empty{padding:22px 14px 26px;color:var(--muted);font-size:14px;min-height:96px;background:var(--sheet)}
+.empty button{border:0;background:none;color:var(--c);font-weight:600;padding:0;text-decoration:underline;text-underline-offset:3px}
+.example{font-size:12.5px;margin-top:6px;font-style:italic}
+
+@media (max-width:760px){
+  .tabs{display:flex}
+  .board{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .board::-webkit-scrollbar{display:none}
+  .col{flex:0 0 100%;scroll-snap-align:start}
+}
+
+/* editor sheet */
+.scrim{position:fixed;inset:0;background:rgb(10 14 22/.45);z-index:20}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;background:var(--sheet);border-radius:18px 18px 0 0;border-top:1px solid var(--rule);
+  padding:18px max(18px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));
+  max-width:620px;margin:0 auto;display:flex;flex-direction:column;gap:14px;max-height:92vh;overflow:auto}
+@media (min-width:761px){.sheet{bottom:auto;top:12vh;border-radius:18px;border:1px solid var(--rule)}}
+.sheet h3{margin:0;font:700 20px var(--f-display)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.seg button{border:1px solid var(--rule);background:var(--paper);border-radius:10px;padding:9px 4px;font-weight:600;font-size:14px}
+.seg button.on[data-v="past"]{background:var(--past-soft);border-color:var(--past);color:var(--past)}
+.seg button.on[data-v="present"]{background:var(--now-soft);border-color:var(--now);color:var(--now)}
+.seg button.on[data-v="future"]{background:var(--next-soft);border-color:var(--next);color:var(--next)}
+label{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:flex;flex-direction:column;gap:6px}
+textarea,select{font:16px/1.45 var(--f-body);color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:10px 12px;width:100%;box-sizing:border-box;text-transform:none;letter-spacing:0}
+textarea{min-height:96px;resize:vertical}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.row > label{flex:1;min-width:120px}
+.actions{display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+.btn{border-radius:10px;padding:11px 18px;font-weight:600;border:1px solid var(--rule);background:var(--paper)}
+.btn.primary{background:var(--ink);color:var(--sheet);border-color:var(--ink)}
+.btn.danger{color:var(--danger);border-color:transparent;background:transparent;padding-inline:4px}
+.btn.danger.arm{background:var(--danger);color:#fff;padding-inline:14px}
+.note{font-size:12.5px;color:var(--muted);margin:0}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(16px);opacity:.6}}}
+.tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.link{border:0;background:none;padding:0;font-size:13px;font-weight:600;color:var(--next);text-decoration:underline;text-underline-offset:3px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--sheet);padding:10px 16px;border-radius:10px;font-size:14px;z-index:30}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="yearnav">
+      <button class="arrow" id="prevYear" aria-label="Previous year">‹</button>
+      <h1 id="yearLabel">2026</h1>
+      <button class="arrow" id="nextYear" aria-label="Next year">›</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+      <div class="tally" id="tally"></div>
+      <div class="tools"><span class="sync" id="sync">Saved on this phone</span><button type="button" class="link" id="exportBtn">Back up</button><button type="button" class="link" id="importBtn">Restore</button><input type="file" id="importFile" accept="application/json,.json" hidden></div>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs" aria-label="Columns">
+    <button data-go="0" class="on">Past<span class="n" id="n-past"></span></button>
+    <button data-go="1">Present<span class="n" id="n-present"></span></button>
+    <button data-go="2">Future<span class="n" id="n-future"></span></button>
+  </nav>
+
+  <main class="board" id="board">
+    <section class="col" data-col="past">
+      <div class="col-head"><div><h2>Past</h2><p>Done and accomplished</p></div><button class="add" data-add="past" aria-label="Add to Past">+</button></div>
+      <ul class="list" id="list-past"></ul>
+    </section>
+    <section class="col" data-col="present">
+      <div class="col-head"><div><h2>Present</h2><p>Working on now</p></div><button class="add" data-add="present" aria-label="Add to Present">+</button></div>
+      <ul class="list" id="list-present"></ul>
+    </section>
+    <section class="col" data-col="future">
+      <div class="col-head"><div><h2>Future</h2><p>Still to come</p></div><button class="add" data-add="future" aria-label="Add to Future">+</button></div>
+      <ul class="list" id="list-future"></ul>
+    </section>
+  </main>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<form class="sheet" id="sheet" hidden>
+  <h3 id="sheetTitle">New entry</h3>
+  <div class="seg" id="seg" role="radiogroup" aria-label="Column">
+    <button type="button" data-v="past">Past</button>
+    <button type="button" data-v="present">Present</button>
+    <button type="button" data-v="future">Future</button>
+  </div>
+  <label>What <textarea id="fText" placeholder="e.g. Finished my first online course" required></textarea></label>
+  <div class="row">
+    <label>Month <select id="fMonth"></select></label>
+    <label>Year <select id="fYear"></select></label>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn danger" id="delBtn" hidden>Delete</button>
+    <span style="flex:1"></span>
+    <button type="button" class="btn" id="cancelBtn">Cancel</button>
+    <button type="submit" class="btn primary" id="saveBtn">Save</button>
+  </div>
+</form>
+
+<div class="toast" id="toast" hidden></div>
+<script>
+(function(){
+  const COLS=["past","present","future"];
+  const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const EXAMPLES={past:"Example: “Ran my first 10 km”",present:"Example: “Learning to drive”",future:"Example: “Visit Victoria Falls”"};
+  const LS="yearLedger.v1";
+  const now=new Date();
+  let year=now.getFullYear();
+  let entries=[];
+  const $=id=>document.getElementById(id);
+
+  function load(){try{const v=JSON.parse(localStorage.getItem(LS)||"[]");return Array.isArray(v)?v:[]}catch(e){return[]}}
+  function save(){try{localStorage.setItem(LS,JSON.stringify(entries))}catch(e){toast("Couldn't save — storage is full or blocked")}}
+  function newId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
+  let tt; function toast(m){const t=$("toast");t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2600)}
+
+  function esc(s){const d=document.createElement("div");d.textContent=s;return d.innerHTML}
+  function sortFor(col){return (a,b)=>{
+    const am=a.month||0,bm=b.month||0;
+    if(am!==bm){ if(!am) return 1; if(!bm) return -1; return col==="past"?bm-am:am-bm; }
+    return (b.created||0)-(a.created||0);
+  }}
+  function render(){
+    $("yearLabel").textContent=year;
+    const counts={};
+    COLS.forEach(col=>{
+      const list=$("list-"+col);
+      const items=entries.filter(e=>e.year===year&&e.col===col).sort(sortFor(col));
+      counts[col]=items.length;
+      $("n-"+col).textContent=items.length||"";
+      if(!items.length){
+        list.innerHTML=`<li class="empty">Nothing here yet for ${year}. <button type="button" data-add="${col}">Add the first one</button><div class="example">${EXAMPLES[col]}</div></li>`;
+        return;
+      }
+      list.innerHTML=items.map(e=>`<li class="entry" tabindex="0" data-id="${e.id}"><span class="mo">${e.month?MONTHS[e.month-1]:"—"}</span><span class="tx">${esc(e.text)}</span></li>`).join("");
+    });
+    $("tally").innerHTML=`<span><b>${counts.past}</b>done</span><span><b>${counts.present}</b>in progress</span><span><b>${counts.future}</b>ahead</span>`;
+  }
+
+  function persist(entry){const i=entries.findIndex(e=>e.id===entry.id);if(i>=0)entries[i]=entry;else entries.push(entry);save();render()}
+  function remove(id){entries=entries.filter(e=>e.id!==id);save();render()}
+
+  // editor
+  let editing=null, selCol="past", delArmed=false;
+  function fillSelects(){
+    $("fMonth").innerHTML=`<option value="">No month</option>`+MONTHS.map((m,i)=>`<option value="${i+1}">${m}</option>`).join("");
+    const ys=new Set([now.getFullYear()-1,now.getFullYear(),now.getFullYear()+1,year]);
+    entries.forEach(e=>ys.add(e.year));
+    $("fYear").innerHTML=[...ys].sort().map(y=>`<option value="${y}">${y}</option>`).join("");
+  }
+  function setSeg(v){selCol=v;document.querySelectorAll("#seg button").forEach(b=>{b.classList.toggle("on",b.dataset.v===v);b.setAttribute("aria-checked",b.dataset.v===v)})}
+  function openSheet(col,entry){
+    editing=entry||null; delArmed=false; fillSelects();
+    $("sheetTitle").textContent=entry?"Edit entry":"New entry";
+    $("fText").value=entry?entry.text:"";
+    $("fMonth").value=entry?(entry.month||""):(year===now.getFullYear()?now.getMonth()+1:"");
+    $("fYear").value=entry?entry.year:year;
+    setSeg(entry?entry.col:col);
+    const d=$("delBtn"); d.hidden=!entry; d.textContent="Delete"; d.classList.remove("arm");
+    $("scrim").hidden=false; $("sheet").hidden=false;
+    setTimeout(()=>$("fText").focus(),30);
+  }
+  function closeSheet(){$("scrim").hidden=true;$("sheet").hidden=true;editing=null}
+  $("sheet").addEventListener("submit",ev=>{
+    ev.preventDefault();
+    const text=$("fText").value.trim(); if(!text){$("fText").focus();return}
+    const t=Date.now();
+    const entry=Object.assign({},editing||{id:newId(),created:t},{col:selCol,text,month:$("fMonth").value?+$("fMonth").value:null,year:+$("fYear").value,updated:t});
+    closeSheet(); persist(entry);
+  });
+  $("seg").addEventListener("click",e=>{const b=e.target.closest("button");if(b)setSeg(b.dataset.v)});
+  $("cancelBtn").onclick=closeSheet; $("scrim").onclick=closeSheet;
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("sheet").hidden)closeSheet()});
+  $("delBtn").onclick=()=>{
+    if(!delArmed){delArmed=true;$("delBtn").textContent="Tap again to delete";$("delBtn").classList.add("arm");return}
+    const id=editing.id; closeSheet(); remove(id);
+  };
+  document.addEventListener("click",e=>{
+    const a=e.target.closest("[data-add]"); if(a){openSheet(a.dataset.add);return}
+    const li=e.target.closest(".entry"); if(li){const en=entries.find(x=>x.id===li.dataset.id); if(en) openSheet(en.col,en);}
+  });
+  document.addEventListener("keydown",e=>{
+    if(e.key==="Enter"&&e.target.classList&&e.target.classList.contains("entry")){const en=entries.find(x=>x.id===e.target.dataset.id);if(en)openSheet(en.col,en)}
+  });
+  $("prevYear").onclick=()=>{year--;render()};
+  $("nextYear").onclick=()=>{year++;render()};
+
+  // backup / restore
+  $("exportBtn").onclick=()=>{
+    const blob=new Blob([JSON.stringify({app:"year-ledger",version:1,exported:new Date().toISOString(),entries},null,2)],{type:"application/json"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+    a.download=`year-ledger-backup-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+    toast("Backup file saved to Downloads");
+  };
+  $("importBtn").onclick=()=>$("importFile").click();
+  $("importFile").onchange=async e=>{
+    const f=e.target.files[0]; e.target.value=""; if(!f) return;
+    try{
+      const d=JSON.parse(await f.text()); const list=Array.isArray(d)?d:d.entries;
+      if(!Array.isArray(list)) throw 0;
+      let added=0;
+      list.forEach(x=>{ if(!x||!x.id||!x.text||!COLS.includes(x.col)) return;
+        const i=entries.findIndex(e=>e.id===x.id); if(i>=0) entries[i]=x; else {entries.push(x);added++} });
+      save(); render(); toast(`Restored — ${added} new ${added===1?"entry":"entries"}`);
+    }catch(err){toast("That file isn't a Year Ledger backup")}
+  };
+
+  // phone tabs <-> swipe
+  const board=$("board"), tabBtns=[...document.querySelectorAll("#tabs button")];
+  tabBtns.forEach(b=>b.onclick=()=>{const i=+b.dataset.go;board.scrollTo({left:(board.clientWidth+12)*i,behavior:"smooth"})});
+  let st; board.addEventListener("scroll",()=>{clearTimeout(st);st=setTimeout(()=>{
+    const i=Math.round(board.scrollLeft/(board.clientWidth+12));tabBtns.forEach((b,j)=>b.classList.toggle("on",j===i));
+  },60)},{passive:true});
+
+  entries=load(); render();
+  // ask the browser not to clear this data when space runs low
+  try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+  // offline support
+  if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+})();
+</script>
+</body>
+</html>
